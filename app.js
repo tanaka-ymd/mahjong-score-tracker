@@ -2,7 +2,7 @@
 let state = loadState();
 
 function loadState() {
-  const defaults = { playerCount: 4, players: [], games: [], uma: '10-30', oka: '25000-30000' };
+  const defaults = { playerCount: 4, players: [], games: [], uma: '10-30', oka: '25000-30000', chipRate: 0 };
   try {
     const saved = localStorage.getItem('mahjong-tracker');
     if (saved) {
@@ -24,14 +24,29 @@ function saveState() {
 // ===== Uma/Oka Options =====
 const UMA_OPTIONS = {
   4: [
-    { value: '10-30', label: '10-30（ゴットー）' },
+    { value: '5-10', label: '5-10' },
+    { value: '5-15', label: '5-15' },
+    { value: '5-20', label: '5-20' },
+    { value: '5-25', label: '5-25' },
+    { value: '5-30', label: '5-30' },
+    { value: '10-15', label: '10-15' },
     { value: '10-20', label: '10-20（ワンツー）' },
+    { value: '10-25', label: '10-25' },
+    { value: '10-30', label: '10-30（ゴットー）' },
+    { value: '15-20', label: '15-20' },
+    { value: '15-25', label: '15-25' },
+    { value: '15-30', label: '15-30' },
+    { value: '20-25', label: '20-25' },
     { value: '20-30', label: '20-30（ニサンマン）' },
     { value: '0-0', label: 'なし' }
   ],
   3: [
-    { value: '10-30', label: '1位+30 / 2位±0 / 3位-30' },
-    { value: '10-20', label: '1位+20 / 2位±0 / 3位-20' },
+    { value: '5-10', label: '5-10（+10/±0/-10）' },
+    { value: '5-15', label: '5-15（+15/±0/-15）' },
+    { value: '5-20', label: '5-20（+20/±0/-20）' },
+    { value: '10-20', label: '10-20（+20/±0/-20）' },
+    { value: '10-30', label: '10-30（+30/±0/-30）' },
+    { value: '15-30', label: '15-30（+30/±0/-30）' },
     { value: '0-0', label: 'なし' }
   ]
 };
@@ -39,16 +54,29 @@ const UMA_OPTIONS = {
 const OKA_OPTIONS = {
   4: [
     { value: '25000-30000', label: '25000持ち 30000返し' },
+    { value: '25000-50000', label: '25000持ち 50000返し' },
     { value: '30000-30000', label: '30000持ち 30000返し' },
+    { value: '30000-50000', label: '30000持ち 50000返し' },
     { value: '25000-25000', label: '25000持ち 25000返し' }
   ],
   3: [
     { value: '35000-40000', label: '35000持ち 40000返し' },
+    { value: '35000-50000', label: '35000持ち 50000返し' },
     { value: '30000-40000', label: '30000持ち 40000返し' },
+    { value: '30000-50000', label: '30000持ち 50000返し' },
     { value: '35000-35000', label: '35000持ち 35000返し' },
     { value: '25000-30000', label: '25000持ち 30000返し' }
   ]
 };
+
+const CHIP_RATE_OPTIONS = [
+  { value: 0, label: 'なし' },
+  { value: 100, label: '1枚 = 100pt' },
+  { value: 200, label: '1枚 = 200pt' },
+  { value: 300, label: '1枚 = 300pt' },
+  { value: 400, label: '1枚 = 400pt' },
+  { value: 500, label: '1枚 = 500pt' }
+];
 
 function populateSelectOptions(selectId, options, currentValue) {
   const select = document.getElementById(selectId);
@@ -147,6 +175,17 @@ function showGameInput() {
   populateSelectOptions('uma-select', UMA_OPTIONS[count], state.uma);
   populateSelectOptions('oka-select', OKA_OPTIONS[count], state.oka);
 
+  // Populate chip rate options
+  const chipSelect = document.getElementById('chip-rate-select');
+  chipSelect.innerHTML = '';
+  CHIP_RATE_OPTIONS.forEach(opt => {
+    const el = document.createElement('option');
+    el.value = opt.value;
+    el.textContent = opt.label;
+    chipSelect.appendChild(el);
+  });
+  chipSelect.value = state.chipRate || 0;
+
   const scoreInputs = document.getElementById('score-inputs');
   scoreInputs.innerHTML = '';
   state.players.forEach((name, i) => {
@@ -159,7 +198,27 @@ function showGameInput() {
     scoreInputs.appendChild(row);
   });
 
+  // Chip inputs
+  const chipInputs = document.getElementById('chip-inputs');
+  chipInputs.innerHTML = '';
+  state.players.forEach((name, i) => {
+    const row = document.createElement('div');
+    row.className = 'input-row';
+    row.innerHTML = `
+      <label>${name}</label>
+      <input type="number" id="chip-${i}" placeholder="±枚数" inputmode="numeric" value="0">
+    `;
+    chipInputs.appendChild(row);
+  });
+
+  updateChipSectionVisibility();
   document.getElementById('game-number').textContent = `(第${state.games.length + 1}局)`;
+}
+
+function updateChipSectionVisibility() {
+  const chipRate = parseInt(document.getElementById('chip-rate-select').value, 10);
+  const chipSection = document.getElementById('chip-section');
+  chipSection.style.display = chipRate > 0 ? 'block' : 'none';
 }
 
 // ===== Game Input =====
@@ -196,13 +255,21 @@ document.getElementById('btn-add-game').addEventListener('click', () => {
 
   state.uma = document.getElementById('uma-select').value;
   state.oka = okaStr;
+  state.chipRate = parseInt(document.getElementById('chip-rate-select').value, 10);
+
+  const chips = [];
+  for (let i = 0; i < count; i++) {
+    chips.push(parseInt(document.getElementById(`chip-${i}`).value, 10) || 0);
+  }
 
   const game = calculateGame(scores, state.uma, state.oka, count);
+  game.chips = chips;
   state.games.push(game);
   saveState();
 
   for (let i = 0; i < count; i++) {
     document.getElementById(`score-${i}`).value = '';
+    document.getElementById(`chip-${i}`).value = '0';
   }
   document.getElementById('game-number').textContent = `(第${state.games.length + 1}局)`;
 
@@ -273,6 +340,7 @@ function renderScoreboard() {
   content.style.display = 'block';
 
   const totals = new Array(count).fill(0);
+  const chipTotals = new Array(count).fill(0);
   const firstPlaces = new Array(count).fill(0);
   const lastPlaces = new Array(count).fill(0);
 
@@ -280,6 +348,11 @@ function renderScoreboard() {
     game.finalScores.forEach((score, i) => {
       totals[i] += score;
     });
+    if (game.chips) {
+      game.chips.forEach((c, i) => {
+        chipTotals[i] += c;
+      });
+    }
     game.rankings.forEach((rank, i) => {
       if (rank === 1) firstPlaces[i]++;
       if (rank === count) lastPlaces[i]++;
@@ -287,11 +360,18 @@ function renderScoreboard() {
   });
 
   totals.forEach((t, i) => totals[i] = Math.round(t * 10) / 10);
+  const chipRate = state.chipRate || 0;
+  const hasChips = chipTotals.some(c => c !== 0);
 
   const ranked = state.players.map((name, i) => ({
-    name, index: i, total: totals[i], first: firstPlaces[i], last: lastPlaces[i]
+    name, index: i, total: totals[i], chip: chipTotals[i], first: firstPlaces[i], last: lastPlaces[i]
   }));
-  ranked.sort((a, b) => b.total - a.total);
+  // Sort by total score (with chip points if chipRate is set)
+  ranked.sort((a, b) => {
+    const aTotal = chipRate > 0 ? a.total + a.chip * chipRate : a.total;
+    const bTotal = chipRate > 0 ? b.total + b.chip * chipRate : b.total;
+    return bTotal - aTotal;
+  });
 
   // Summary cards
   const summaryCards = document.getElementById('summary-cards');
@@ -304,12 +384,19 @@ function renderScoreboard() {
   ranked.forEach((p, rank) => {
     const card = document.createElement('div');
     card.className = 'summary-card';
-    const scoreClass = p.total >= 0 ? 'positive' : 'negative';
-    const sign = p.total >= 0 ? '+' : '';
+    const totalWithChip = chipRate > 0 ? Math.round((p.total + p.chip * chipRate) * 10) / 10 : p.total;
+    const scoreClass = totalWithChip >= 0 ? 'positive' : 'negative';
+    const sign = totalWithChip >= 0 ? '+' : '';
+    let chipHtml = '';
+    if (hasChips) {
+      const chipSign = p.chip >= 0 ? '+' : '';
+      chipHtml = `<div class="chip-info">${chipSign}${p.chip}枚${chipRate > 0 ? ` (${chipSign}${p.chip * chipRate}pt)` : ''}</div>`;
+    }
     card.innerHTML = `
       <div class="rank">${rankLabels[rank]}</div>
       <div class="player-name">${p.name}</div>
-      <div class="score ${scoreClass}">${sign}${p.total}</div>
+      <div class="score ${scoreClass}">${sign}${chipRate > 0 ? totalWithChip : p.total}</div>
+      ${chipHtml}
       <div class="win-rate">トップ${p.first} / ${lastLabel}${p.last}</div>
     `;
     summaryCards.appendChild(card);
@@ -329,7 +416,8 @@ function renderScoreboard() {
       const cls = score >= 0 ? 'positive' : 'negative';
       const sign = score >= 0 ? '+' : '';
       const rankBadge = game.rankings[pi] === 1 ? ' ①' : '';
-      cells += `<td class="${cls}">${sign}${score}${rankBadge}</td>`;
+      const chipDisplay = (game.chips && game.chips[pi] !== 0) ? `<br><small class="chip-badge">${game.chips[pi] > 0 ? '+' : ''}${game.chips[pi]}枚</small>` : '';
+      cells += `<td class="${cls}">${sign}${score}${rankBadge}${chipDisplay}</td>`;
     });
     cells += `<td><button class="btn-delete-game" data-game="${gi}" title="削除">×</button></td>`;
     tr.innerHTML = cells;
@@ -340,10 +428,12 @@ function renderScoreboard() {
   const totalRow = document.createElement('tr');
   totalRow.className = 'total-row';
   let totalCells = '<td>計</td>';
-  totals.forEach(t => {
-    const cls = t >= 0 ? 'positive' : 'negative';
-    const sign = t >= 0 ? '+' : '';
-    totalCells += `<td class="${cls}">${sign}${t}</td>`;
+  totals.forEach((t, i) => {
+    const finalTotal = chipRate > 0 ? Math.round((t + chipTotals[i] * chipRate) * 10) / 10 : t;
+    const cls = finalTotal >= 0 ? 'positive' : 'negative';
+    const sign = finalTotal >= 0 ? '+' : '';
+    const chipDisplay = hasChips ? `<br><small class="chip-badge">${chipTotals[i] >= 0 ? '+' : ''}${chipTotals[i]}枚</small>` : '';
+    totalCells += `<td class="${cls}">${sign}${finalTotal}${chipDisplay}</td>`;
   });
   totalCells += '<td></td>';
   totalRow.innerHTML = totalCells;
@@ -353,7 +443,7 @@ function renderScoreboard() {
 // ===== Reset =====
 document.getElementById('btn-reset').addEventListener('click', () => {
   if (confirm('全データをリセットしますか？この操作は元に戻せません。')) {
-    state = { playerCount: 4, players: [], games: [], uma: '10-30', oka: '25000-30000' };
+    state = { playerCount: 4, players: [], games: [], uma: '10-30', oka: '25000-30000', chipRate: 0 };
     saveState();
     location.reload();
   }
@@ -482,6 +572,9 @@ document.getElementById('history-body').addEventListener('click', (e) => {
     }
   }
 });
+
+// ===== Chip Rate Change =====
+document.getElementById('chip-rate-select').addEventListener('change', updateChipSectionVisibility);
 
 // ===== Init =====
 renderScoreboard();

@@ -561,6 +561,26 @@ h3 {
   justify-content: center;
 }
 
+/* Chip */
+.chip-heading {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 8px;
+}
+
+.chip-info {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.chip-badge {
+  color: #e65100;
+  font-weight: 600;
+  font-size: 11px;
+}
+
 /* Hidden row for 3-player mode */
 .input-row.hidden {
   display: none;
