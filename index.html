@@ -40,6 +40,24 @@
             <tbody id="history-body"></tbody>
           </table>
         </div>
+        <div class="settlement-section" id="settlement-section" style="display:none;">
+          <h3>精算</h3>
+          <div class="settlement-rate">
+            <label>レート:
+              <select id="rate-select">
+                <option value="0">なし</option>
+                <option value="10">テンイチ (1000点=10pt)</option>
+                <option value="20">テンニ (1000点=20pt)</option>
+                <option value="30">テンサン (1000点=30pt)</option>
+                <option value="50" selected>テンゴ (1000点=50pt)</option>
+                <option value="100">テンピン (1000点=100pt)</option>
+                <option value="200">テンリャンピン (1000点=200pt)</option>
+                <option value="500">デカピン (1000点=500pt)</option>
+              </select>
+            </label>
+          </div>
+          <div id="settlement-body"></div>
+        </div>
         <div class="actions">
           <button id="btn-reset" class="btn btn-danger">データリセット</button>
         </div>

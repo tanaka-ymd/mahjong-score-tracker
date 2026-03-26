@@ -1,5 +1,6 @@
 // ===== State =====
 let state = loadState();
+const RATE_KEY = 'mahjong-tracker-rate';
 
 function loadState() {
   const defaults = { playerCount: 4, players: [], games: [], uma: '10-30', oka: '25000-30000', chipRate: 0 };
@@ -163,6 +164,7 @@ btnSavePlayers.addEventListener('click', () => {
   saveState();
   showGameInput();
   renderScoreboard();
+  renderSettlement();
 });
 
 function showGameInput() {
@@ -274,6 +276,7 @@ document.getElementById('btn-add-game').addEventListener('click', () => {
   document.getElementById('game-number').textContent = `(第${state.games.length + 1}局)`;
 
   renderScoreboard();
+  renderSettlement();
 
   // Switch to scoreboard
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -440,6 +443,66 @@ function renderScoreboard() {
   body.appendChild(totalRow);
 }
 
+// ===== Settlement (精算) =====
+function renderSettlement() {
+  const section = document.getElementById('settlement-section');
+  const body = document.getElementById('settlement-body');
+  const rateSelect = document.getElementById('rate-select');
+  const rate = parseInt(rateSelect.value, 10);
+  const count = state.playerCount;
+
+  if (state.games.length === 0 || state.players.length === 0 || rate === 0) {
+    section.style.display = state.games.length > 0 ? 'block' : 'none';
+    body.innerHTML = rate === 0 ? '<p class="settlement-none">レートを選択してください</p>' : '';
+    return;
+  }
+
+  section.style.display = 'block';
+
+  const totals = new Array(count).fill(0);
+  const chipTotals = new Array(count).fill(0);
+  state.games.forEach(game => {
+    game.finalScores.forEach((s, i) => { totals[i] += s; });
+    if (game.chips) game.chips.forEach((c, i) => { chipTotals[i] += c; });
+  });
+
+  const chipRate = state.chipRate || 0;
+  const results = state.players.map((name, i) => {
+    const scorePoints = Math.round(totals[i] * rate * 10) / 10;
+    const chipPoints = chipRate > 0 ? chipTotals[i] * chipRate : 0;
+    const total = Math.round((scorePoints + chipPoints) * 10) / 10;
+    return { name, scorePoints, chipPoints, total };
+  });
+
+  results.sort((a, b) => b.total - a.total);
+
+  let html = '<div class="settlement-list">';
+  results.forEach(r => {
+    const cls = r.total >= 0 ? 'positive' : 'negative';
+    const sign = r.total >= 0 ? '+' : '';
+    html += `<div class="settlement-row">
+      <span class="settlement-name">${r.name}</span>
+      <span class="settlement-points ${cls}">${sign}${r.total}pt</span>
+    </div>`;
+  });
+  html += '</div>';
+  body.innerHTML = html;
+}
+
+// Restore saved rate
+(function initRate() {
+  const saved = localStorage.getItem(RATE_KEY);
+  if (saved) {
+    const sel = document.getElementById('rate-select');
+    if (sel) sel.value = saved;
+  }
+})();
+
+document.getElementById('rate-select').addEventListener('change', function() {
+  localStorage.setItem(RATE_KEY, this.value);
+  renderSettlement();
+});
+
 // ===== Reset =====
 document.getElementById('btn-reset').addEventListener('click', () => {
   if (confirm('全データをリセットしますか？この操作は元に戻せません。')) {
@@ -567,6 +630,7 @@ document.getElementById('history-body').addEventListener('click', (e) => {
     state.games.splice(idx, 1);
     saveState();
     renderScoreboard();
+    renderSettlement();
     if (document.getElementById('game-number')) {
       document.getElementById('game-number').textContent = `(第${state.games.length + 1}局)`;
     }
@@ -578,4 +642,5 @@ document.getElementById('chip-rate-select').addEventListener('change', updateChi
 
 // ===== Init =====
 renderScoreboard();
+renderSettlement();
 renderPointsTable();
