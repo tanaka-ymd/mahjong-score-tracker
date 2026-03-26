@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="麻雀スコア">
+  <meta name="theme-color" content="#1a7a3a">
+  <title>麻雀スコアトラッカー</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🀄</text></svg>">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🀄</text></svg>">
+</head>
+<body>
+  <header>
+    <h1>麻雀スコアトラッカー</h1>
+  </header>
+
+  <nav id="tab-nav">
+    <button class="tab active" data-tab="scoreboard">成績表</button>
+    <button class="tab" data-tab="input">対局入力</button>
+    <button class="tab" data-tab="points">点数表</button>
+    <button class="tab" data-tab="fu">符計算</button>
+  </nav>
+
+  <main>
+    <!-- 成績表 -->
+    <section id="scoreboard" class="panel active">
+      <div id="no-data" class="empty-state">
+        <p>まだ対局データがありません</p>
+        <p>「対局入力」から始めましょう</p>
+      </div>
+      <div id="scoreboard-content" style="display:none;">
+        <div class="summary-cards" id="summary-cards"></div>
+        <h3>対局履歴</h3>
+        <div class="table-wrapper">
+          <table id="history-table">
+            <thead id="history-header"></thead>
+            <tbody id="history-body"></tbody>
+          </table>
+        </div>
+        <div class="actions">
+          <button id="btn-reset" class="btn btn-danger">データリセット</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 対局入力 -->
+    <section id="input" class="panel">
+      <div id="player-setup" class="card">
+        <h3>プレイヤー設定</h3>
+        <div class="mode-select">
+          <button class="mode-btn active" data-mode="4">4人麻雀</button>
+          <button class="mode-btn" data-mode="3">3人麻雀</button>
+        </div>
+        <div class="player-inputs" id="player-name-inputs">
+          <div class="input-row">
+            <label>プレイヤー1</label>
+            <input type="text" id="pname-0" placeholder="名前" maxlength="8">
+          </div>
+          <div class="input-row">
+            <label>プレイヤー2</label>
+            <input type="text" id="pname-1" placeholder="名前" maxlength="8">
+          </div>
+          <div class="input-row">
+            <label>プレイヤー3</label>
+            <input type="text" id="pname-2" placeholder="名前" maxlength="8">
+          </div>
+          <div class="input-row" id="pname-row-3">
+            <label>プレイヤー4</label>
+            <input type="text" id="pname-3" placeholder="名前" maxlength="8">
+          </div>
+        </div>
+        <button id="btn-save-players" class="btn btn-primary">プレイヤー確定</button>
+      </div>
+
+      <div id="game-input" class="card" style="display:none;">
+        <h3>対局結果入力 <span id="game-number"></span></h3>
+        <div id="score-inputs" class="player-inputs"></div>
+        <div class="input-options">
+          <label>ウマ:
+            <select id="uma-select"></select>
+          </label>
+          <label>オカ:
+            <select id="oka-select"></select>
+          </label>
+        </div>
+        <button id="btn-add-game" class="btn btn-primary">対局結果を記録</button>
+        <p id="input-error" class="error-msg"></p>
+      </div>
+    </section>
+
+    <!-- 点数早見表 -->
+    <section id="points" class="panel">
+      <h3>点数早見表</h3>
+      <div class="toggle-row">
+        <button class="toggle-btn active" data-dealer="child">子</button>
+        <button class="toggle-btn" data-dealer="parent">親</button>
+      </div>
+      <div class="table-wrapper">
+        <table id="points-table" class="points-table">
+          <thead>
+            <tr>
+              <th>符＼翻</th>
+              <th>1翻</th>
+              <th>2翻</th>
+              <th>3翻</th>
+              <th>4翻</th>
+            </tr>
+          </thead>
+          <tbody id="points-body"></tbody>
+        </table>
+      </div>
+      <div class="card mangan-list">
+        <h4>満貫以上</h4>
+        <div id="mangan-table"></div>
+      </div>
+    </section>
+
+    <!-- 符計算 -->
+    <section id="fu" class="panel">
+      <h3>符計算</h3>
+      <div class="card">
+        <div class="fu-section">
+          <h4>基本符（副底: 20符）</h4>
+          <div class="fu-check">
+            <label><input type="checkbox" id="fu-tsumo"> ツモアガリ (+2符)</label>
+          </div>
+          <div class="fu-check">
+            <label><input type="checkbox" id="fu-menzen"> メンゼンロン (+10符)</label>
+          </div>
+        </div>
+
+        <div class="fu-section">
+          <h4>雀頭</h4>
+          <select id="fu-jantou">
+            <option value="0">数牌・オタ風 (0符)</option>
+            <option value="2">役牌 (2符)</option>
+            <option value="4">ダブ東・ダブ南 (4符)</option>
+          </select>
+        </div>
+
+        <div class="fu-section">
+          <h4>面子</h4>
+          <div id="fu-mentsu-list">
+            <div class="fu-mentsu-row">
+              <select class="fu-mentsu-type">
+                <option value="0">なし</option>
+                <option value="2">明刻（中張牌）</option>
+                <option value="4">明刻（幺九牌）</option>
+                <option value="4">暗刻（中張牌）</option>
+                <option value="8">暗刻（幺九牌）</option>
+                <option value="8">明槓（中張牌）</option>
+                <option value="16">明槓（幺九牌）</option>
+                <option value="16">暗槓（中張牌）</option>
+                <option value="32">暗槓（幺九牌）</option>
+              </select>
+            </div>
+            <div class="fu-mentsu-row">
+              <select class="fu-mentsu-type">
+                <option value="0">なし</option>
+                <option value="2">明刻（中張牌）</option>
+                <option value="4">明刻（幺九牌）</option>
+                <option value="4">暗刻（中張牌）</option>
+                <option value="8">暗刻（幺九牌）</option>
+                <option value="8">明槓（中張牌）</option>
+                <option value="16">明槓（幺九牌）</option>
+                <option value="16">暗槓（中張牌）</option>
+                <option value="32">暗槓（幺九牌）</option>
+              </select>
+            </div>
+            <div class="fu-mentsu-row">
+              <select class="fu-mentsu-type">
+                <option value="0">なし</option>
+                <option value="2">明刻（中張牌）</option>
+                <option value="4">明刻（幺九牌）</option>
+                <option value="4">暗刻（中張牌）</option>
+                <option value="8">暗刻（幺九牌）</option>
+                <option value="8">明槓（中張牌）</option>
+                <option value="16">明槓（幺九牌）</option>
+                <option value="16">暗槓（中張牌）</option>
+                <option value="32">暗槓（幺九牌）</option>
+              </select>
+            </div>
+            <div class="fu-mentsu-row">
+              <select class="fu-mentsu-type">
+                <option value="0">なし</option>
+                <option value="2">明刻（中張牌）</option>
+                <option value="4">明刻（幺九牌）</option>
+                <option value="4">暗刻（中張牌）</option>
+                <option value="8">暗刻（幺九牌）</option>
+                <option value="8">明槓（中張牌）</option>
+                <option value="16">明槓（幺九牌）</option>
+                <option value="16">暗槓（中張牌）</option>
+                <option value="32">暗槓（幺九牌）</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="fu-section">
+          <h4>待ち</h4>
+          <select id="fu-machi">
+            <option value="0">両面・シャボ (0符)</option>
+            <option value="2">カンチャン・ペンチャン・単騎 (2符)</option>
+          </select>
+        </div>
+
+        <button id="btn-calc-fu" class="btn btn-primary">符を計算</button>
+        <div id="fu-result" class="result-box"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
