@@ -20,8 +20,10 @@
   <nav id="tab-nav">
     <button class="tab active" data-tab="scoreboard">成績表</button>
     <button class="tab" data-tab="input">対局入力</button>
+    <button class="tab" data-tab="stats">統計</button>
     <button class="tab" data-tab="points">点数表</button>
     <button class="tab" data-tab="fu">符計算</button>
+    <button class="tab" data-tab="data">データ</button>
   </nav>
 
   <main>
@@ -33,6 +35,14 @@
       </div>
       <div id="scoreboard-content" style="display:none;">
         <div class="summary-cards" id="summary-cards"></div>
+        <div id="score-graph-section" style="display:none;">
+          <h3>スコア推移</h3>
+          <div class="card graph-card">
+            <canvas id="score-graph-canvas"></canvas>
+            <div id="graph-tooltip" class="graph-tooltip" style="display:none;"></div>
+            <div id="graph-legend" class="graph-legend"></div>
+          </div>
+        </div>
         <h3>対局履歴</h3>
         <div class="table-wrapper">
           <table id="history-table">
@@ -143,6 +153,20 @@
       </div>
     </section>
 
+    <!-- 統計 -->
+    <section id="stats" class="panel">
+      <h3>統計ダッシュボード</h3>
+      <div id="stats-no-data" class="empty-state">
+        <p>対局データがありません</p>
+      </div>
+      <div id="stats-content" style="display:none;">
+        <div class="stats-overview card">
+          <div class="stats-total-games">総対局数: <span id="stats-total-count">0</span></div>
+        </div>
+        <div id="stats-player-cards"></div>
+      </div>
+    </section>
+
     <!-- 符計算 -->
     <section id="fu" class="panel">
       <h3>符計算</h3>
@@ -234,6 +258,26 @@
 
         <button id="btn-calc-fu" class="btn btn-primary">符を計算</button>
         <div id="fu-result" class="result-box"></div>
+      </div>
+    </section>
+    <!-- データ -->
+    <section id="data" class="panel">
+      <h3>データ管理</h3>
+      <div class="card">
+        <h4 class="data-section-title">エクスポート</h4>
+        <p class="data-description">全データをJSONファイルとしてダウンロードします。</p>
+        <button id="btn-export" class="btn btn-primary">データをエクスポート</button>
+      </div>
+      <div class="card">
+        <h4 class="data-section-title">インポート</h4>
+        <p class="data-description">JSONファイルからデータを復元します。現在のデータは上書きされます。</p>
+        <input type="file" id="import-file" accept=".json" style="display:none;">
+        <button id="btn-import" class="btn btn-primary">データをインポート</button>
+      </div>
+      <div class="card">
+        <h4 class="data-section-title">データクリア</h4>
+        <p class="data-description">全データを削除してリセットします。この操作は元に戻せません。</p>
+        <button id="btn-data-reset" class="btn btn-danger">データリセット</button>
       </div>
     </section>
   </main>

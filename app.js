@@ -102,6 +102,8 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     tab.classList.add('active');
     document.getElementById(tab.dataset.tab).classList.add('active');
+    if (tab.dataset.tab === 'stats') renderStats();
+    if (tab.dataset.tab === 'scoreboard') renderScoreGraph();
   });
 });
 
@@ -165,6 +167,7 @@ btnSavePlayers.addEventListener('click', () => {
   showGameInput();
   renderScoreboard();
   renderSettlement();
+  renderStats();
 });
 
 function showGameInput() {
@@ -277,6 +280,7 @@ document.getElementById('btn-add-game').addEventListener('click', () => {
 
   renderScoreboard();
   renderSettlement();
+  renderStats();
 
   // Switch to scoreboard
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -327,6 +331,30 @@ function calculateGame(rawScores, umaStr, okaStr, count) {
   };
 }
 
+// ===== Player Colors for Graph =====
+const PLAYER_COLORS = ['#1a7a3a', '#1565C0', '#e65100', '#7B1FA2'];
+
+// ===== Session Helpers =====
+function getSessionKey(timestamp) {
+  const d = new Date(timestamp);
+  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function groupGamesBySessions(games) {
+  const sessions = [];
+  const map = {};
+  games.forEach((game, idx) => {
+    const key = getSessionKey(game.timestamp);
+    if (!map[key]) {
+      map[key] = { date: key, games: [], indices: [] };
+      sessions.push(map[key]);
+    }
+    map[key].games.push(game);
+    map[key].indices.push(idx);
+  });
+  return sessions;
+}
+
 // ===== Scoreboard =====
 function renderScoreboard() {
   const noData = document.getElementById('no-data');
@@ -369,7 +397,6 @@ function renderScoreboard() {
   const ranked = state.players.map((name, i) => ({
     name, index: i, total: totals[i], chip: chipTotals[i], first: firstPlaces[i], last: lastPlaces[i]
   }));
-  // Sort by total score (with chip points if chipRate is set)
   ranked.sort((a, b) => {
     const aTotal = chipRate > 0 ? a.total + a.chip * chipRate : a.total;
     const bTotal = chipRate > 0 ? b.total + b.chip * chipRate : b.total;
@@ -382,7 +409,7 @@ function renderScoreboard() {
   summaryCards.className = 'summary-cards' + (count === 3 ? ' three-players' : '');
 
   const rankLabels = count === 3 ? ['1st', '2nd', '3rd'] : ['1st', '2nd', '3rd', '4th'];
-  const lastLabel = count === 3 ? 'ラス' : 'ラス';
+  const lastLabel = 'ラス';
 
   ranked.forEach((p, rank) => {
     const card = document.createElement('div');
@@ -405,27 +432,92 @@ function renderScoreboard() {
     summaryCards.appendChild(card);
   });
 
-  // History table
+  // Score Graph
+  renderScoreGraph();
+
+  // History table with sessions
   const header = document.getElementById('history-header');
   header.innerHTML = `<tr><th>#</th>${state.players.map(n => `<th>${n}</th>`).join('')}<th></th></tr>`;
 
   const body = document.getElementById('history-body');
   body.innerHTML = '';
 
-  state.games.forEach((game, gi) => {
-    const tr = document.createElement('tr');
-    let cells = `<td>${gi + 1}</td>`;
-    game.finalScores.forEach((score, pi) => {
-      const cls = score >= 0 ? 'positive' : 'negative';
-      const sign = score >= 0 ? '+' : '';
-      const rankBadge = game.rankings[pi] === 1 ? ' ①' : '';
-      const chipDisplay = (game.chips && game.chips[pi] !== 0) ? `<br><small class="chip-badge">${game.chips[pi] > 0 ? '+' : ''}${game.chips[pi]}枚</small>` : '';
-      cells += `<td class="${cls}">${sign}${score}${rankBadge}${chipDisplay}</td>`;
+  const sessions = groupGamesBySessions(state.games);
+
+  if (sessions.length > 1) {
+    // Multi-session: show session headers with collapsible groups
+    sessions.forEach((session, si) => {
+      const isLatest = si === sessions.length - 1;
+      // Session header row
+      const headerTr = document.createElement('tr');
+      headerTr.className = 'session-header-row';
+      headerTr.innerHTML = `<td colspan="${count + 2}">
+        <div class="session-header" data-session="${si}">
+          <span class="session-title">${session.date} (${session.games.length}局)</span>
+          <span class="session-toggle ${isLatest ? '' : 'collapsed'}">▼</span>
+        </div>
+      </td>`;
+      body.appendChild(headerTr);
+
+      // Game rows for this session
+      const groupId = `session-group-${si}`;
+      session.games.forEach((game, gi) => {
+        const globalIdx = session.indices[gi];
+        const tr = document.createElement('tr');
+        tr.className = `session-game-row ${groupId}`;
+        if (!isLatest) tr.style.display = 'none';
+        let cells = `<td>${globalIdx + 1}</td>`;
+        game.finalScores.forEach((score, pi) => {
+          const cls = score >= 0 ? 'positive' : 'negative';
+          const sign = score >= 0 ? '+' : '';
+          const rankBadge = game.rankings[pi] === 1 ? ' ①' : '';
+          const chipDisplay = (game.chips && game.chips[pi] !== 0) ? `<br><small class="chip-badge">${game.chips[pi] > 0 ? '+' : ''}${game.chips[pi]}枚</small>` : '';
+          cells += `<td class="${cls}">${sign}${score}${rankBadge}${chipDisplay}</td>`;
+        });
+        cells += `<td><button class="btn-delete-game" data-game="${globalIdx}" title="削除">×</button></td>`;
+        tr.innerHTML = cells;
+        body.appendChild(tr);
+      });
+
+      // Session subtotal row
+      const subTotals = new Array(count).fill(0);
+      const subChips = new Array(count).fill(0);
+      session.games.forEach(game => {
+        game.finalScores.forEach((s, i) => subTotals[i] += s);
+        if (game.chips) game.chips.forEach((c, i) => subChips[i] += c);
+      });
+      const subTr = document.createElement('tr');
+      subTr.className = `session-subtotal-row ${groupId}`;
+      if (!isLatest) subTr.style.display = 'none';
+      let subCells = '<td>小計</td>';
+      subTotals.forEach((t, i) => {
+        const rounded = Math.round(t * 10) / 10;
+        const finalSub = chipRate > 0 ? Math.round((rounded + subChips[i] * chipRate) * 10) / 10 : rounded;
+        const cls = finalSub >= 0 ? 'positive' : 'negative';
+        const sign = finalSub >= 0 ? '+' : '';
+        subCells += `<td class="${cls}">${sign}${finalSub}</td>`;
+      });
+      subCells += '<td></td>';
+      subTr.innerHTML = subCells;
+      body.appendChild(subTr);
     });
-    cells += `<td><button class="btn-delete-game" data-game="${gi}" title="削除">×</button></td>`;
-    tr.innerHTML = cells;
-    body.appendChild(tr);
-  });
+  } else {
+    // Single session or no sessions: render flat
+    state.games.forEach((game, gi) => {
+      const tr = document.createElement('tr');
+      let cells = `<td>${gi + 1}</td>`;
+      game.finalScores.forEach((score, pi) => {
+        const cls = score >= 0 ? 'positive' : 'negative';
+        const sign = score >= 0 ? '+' : '';
+        const rankBadge = game.rankings[pi] === 1 ? ' ①' : '';
+        const chipDisplay = (game.chips && game.chips[pi] !== 0) ? `<br><small class="chip-badge">${game.chips[pi] > 0 ? '+' : ''}${game.chips[pi]}枚</small>` : '';
+        cells += `<td class="${cls}">${sign}${score}${rankBadge}${chipDisplay}</td>`;
+      });
+      cells += `<td><button class="btn-delete-game" data-game="${gi}" title="削除">×</button></td>`;
+      tr.innerHTML = cells;
+      body.appendChild(tr);
+    });
+  }
 
   // Total row
   const totalRow = document.createElement('tr');
@@ -441,6 +533,277 @@ function renderScoreboard() {
   totalCells += '<td></td>';
   totalRow.innerHTML = totalCells;
   body.appendChild(totalRow);
+}
+
+// ===== Session toggle (Event Delegation) =====
+document.getElementById('history-body').addEventListener('click', (e) => {
+  const hdr = e.target.closest('.session-header');
+  if (!hdr) return;
+  const si = hdr.dataset.session;
+  const groupClass = `session-group-${si}`;
+  const toggle = hdr.querySelector('.session-toggle');
+  const isCollapsed = toggle.classList.contains('collapsed');
+  toggle.classList.toggle('collapsed');
+  document.querySelectorAll(`.${groupClass}`).forEach(row => {
+    row.style.display = isCollapsed ? '' : 'none';
+  });
+});
+
+// ===== Score Graph =====
+function renderScoreGraph() {
+  const section = document.getElementById('score-graph-section');
+  const canvas = document.getElementById('score-graph-canvas');
+  const legendEl = document.getElementById('graph-legend');
+  const count = state.playerCount;
+
+  if (state.games.length < 2) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = 'block';
+
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const w = rect.width - 16;
+  const h = 220;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, w, h);
+
+  // Calculate cumulative scores
+  const cumScores = [];
+  for (let pi = 0; pi < count; pi++) {
+    const series = [0];
+    let cum = 0;
+    state.games.forEach(game => {
+      cum += game.finalScores[pi];
+      series.push(Math.round(cum * 10) / 10);
+    });
+    cumScores.push(series);
+  }
+
+  const numPoints = state.games.length + 1;
+  const allValues = cumScores.flat();
+  let minVal = Math.min(...allValues);
+  let maxVal = Math.max(...allValues);
+  if (minVal === maxVal) { minVal -= 10; maxVal += 10; }
+  const padding = { top: 20, right: 16, bottom: 30, left: 45 };
+  const graphW = w - padding.left - padding.right;
+  const graphH = h - padding.top - padding.bottom;
+
+  const xStep = graphW / (numPoints - 1);
+
+  function toX(i) { return padding.left + i * xStep; }
+  function toY(val) { return padding.top + graphH - ((val - minVal) / (maxVal - minVal)) * graphH; }
+
+  // Grid lines and Y-axis labels
+  ctx.strokeStyle = '#e0e0e0';
+  ctx.lineWidth = 1;
+  ctx.fillStyle = '#757575';
+  ctx.font = '10px sans-serif';
+  ctx.textAlign = 'right';
+  const yTicks = 5;
+  for (let i = 0; i <= yTicks; i++) {
+    const val = minVal + (maxVal - minVal) * i / yTicks;
+    const y = toY(val);
+    ctx.beginPath();
+    ctx.moveTo(padding.left, y);
+    ctx.lineTo(w - padding.right, y);
+    ctx.stroke();
+    ctx.fillText(Math.round(val * 10) / 10, padding.left - 4, y + 3);
+  }
+
+  // Zero line
+  if (minVal < 0 && maxVal > 0) {
+    ctx.strokeStyle = '#bdbdbd';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(padding.left, toY(0));
+    ctx.lineTo(w - padding.right, toY(0));
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // X-axis labels
+  ctx.fillStyle = '#757575';
+  ctx.font = '10px sans-serif';
+  ctx.textAlign = 'center';
+  for (let i = 0; i < numPoints; i++) {
+    const label = i === 0 ? '開始' : `${i}`;
+    // Only show some labels if too many
+    if (numPoints <= 12 || i === 0 || i === numPoints - 1 || i % Math.ceil(numPoints / 10) === 0) {
+      ctx.fillText(label, toX(i), h - padding.bottom + 16);
+    }
+  }
+
+  // Draw lines
+  const pointPositions = [];
+  for (let pi = 0; pi < count; pi++) {
+    ctx.strokeStyle = PLAYER_COLORS[pi] || '#333';
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    const pts = [];
+    cumScores[pi].forEach((val, i) => {
+      const x = toX(i);
+      const y = toY(val);
+      pts.push({ x, y, val, gameIdx: i });
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    pointPositions.push(pts);
+
+    // Draw dots
+    pts.forEach(pt => {
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = PLAYER_COLORS[pi] || '#333';
+      ctx.fill();
+    });
+  }
+
+  // Store for tooltip interaction
+  canvas._graphData = { pointPositions, cumScores, count, w, h, dpr };
+
+  // Legend
+  legendEl.innerHTML = '';
+  state.players.forEach((name, i) => {
+    const item = document.createElement('span');
+    item.className = 'graph-legend-item';
+    item.innerHTML = `<span class="graph-legend-color" style="background:${PLAYER_COLORS[i]}"></span>${name}`;
+    legendEl.appendChild(item);
+  });
+}
+
+// Graph tooltip interaction
+(function() {
+  const canvas = document.getElementById('score-graph-canvas');
+  const tooltip = document.getElementById('graph-tooltip');
+
+  function handleGraphInteraction(clientX, clientY) {
+    if (!canvas._graphData) return;
+    const { pointPositions, count, dpr } = canvas._graphData;
+    const rect = canvas.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+
+    let closest = null;
+    let minDist = 30;
+    for (let pi = 0; pi < count; pi++) {
+      pointPositions[pi].forEach(pt => {
+        const dist = Math.sqrt((pt.x - x) ** 2 + (pt.y - y) ** 2);
+        if (dist < minDist) {
+          minDist = dist;
+          closest = { pi, ...pt };
+        }
+      });
+    }
+
+    if (closest) {
+      const label = closest.gameIdx === 0 ? '開始' : `第${closest.gameIdx}局`;
+      tooltip.textContent = `${state.players[closest.pi]}: ${label} ${closest.val >= 0 ? '+' : ''}${closest.val}`;
+      tooltip.style.display = 'block';
+      // Position relative to card
+      const cardRect = canvas.parentElement.getBoundingClientRect();
+      tooltip.style.left = (closest.x + 8) + 'px';
+      tooltip.style.top = (closest.y - 8) + 'px';
+    } else {
+      tooltip.style.display = 'none';
+    }
+  }
+
+  canvas.addEventListener('mousemove', (e) => handleGraphInteraction(e.clientX, e.clientY));
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    handleGraphInteraction(touch.clientX, touch.clientY);
+  }, { passive: false });
+  canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    handleGraphInteraction(touch.clientX, touch.clientY);
+  }, { passive: false });
+  canvas.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+  canvas.addEventListener('touchend', () => { tooltip.style.display = 'none'; });
+})();
+
+// ===== Statistics Dashboard =====
+function renderStats() {
+  const noData = document.getElementById('stats-no-data');
+  const content = document.getElementById('stats-content');
+  const count = state.playerCount;
+
+  if (state.games.length === 0 || state.players.length === 0) {
+    noData.style.display = 'block';
+    content.style.display = 'none';
+    return;
+  }
+
+  noData.style.display = 'none';
+  content.style.display = 'block';
+
+  document.getElementById('stats-total-count').textContent = state.games.length;
+
+  const container = document.getElementById('stats-player-cards');
+  container.innerHTML = '';
+
+  state.players.forEach((name, pi) => {
+    const rankings = state.games.map(g => g.rankings[pi]);
+    const scores = state.games.map(g => g.finalScores[pi]);
+    const avgRank = (rankings.reduce((a, b) => a + b, 0) / rankings.length).toFixed(2);
+    const winCount = rankings.filter(r => r === 1).length;
+    const winRate = ((winCount / rankings.length) * 100).toFixed(1);
+    const avgScore = (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1);
+    const maxScore = Math.max(...scores);
+    const minScore = Math.min(...scores);
+
+    // Consecutive wins
+    let maxStreak = 0, streak = 0;
+    rankings.forEach(r => {
+      if (r === 1) { streak++; maxStreak = Math.max(maxStreak, streak); }
+      else { streak = 0; }
+    });
+
+    const card = document.createElement('div');
+    card.className = 'stats-player-card';
+    card.innerHTML = `
+      <div class="stats-player-name" style="color:${PLAYER_COLORS[pi]}">${name}</div>
+      <div class="stats-grid">
+        <div class="stats-item">
+          <span class="stats-label">平均順位</span>
+          <span class="stats-value">${avgRank}位</span>
+        </div>
+        <div class="stats-item">
+          <span class="stats-label">勝率(1位率)</span>
+          <span class="stats-value">${winRate}%</span>
+        </div>
+        <div class="stats-item">
+          <span class="stats-label">最大連勝</span>
+          <span class="stats-value">${maxStreak}連勝</span>
+        </div>
+        <div class="stats-item">
+          <span class="stats-label">平均スコア</span>
+          <span class="stats-value ${parseFloat(avgScore) >= 0 ? 'positive' : 'negative'}">${parseFloat(avgScore) >= 0 ? '+' : ''}${avgScore}</span>
+        </div>
+        <div class="stats-item">
+          <span class="stats-label">最高スコア</span>
+          <span class="stats-value ${maxScore >= 0 ? 'positive' : 'negative'}">${maxScore >= 0 ? '+' : ''}${maxScore}</span>
+        </div>
+        <div class="stats-item">
+          <span class="stats-label">最低スコア</span>
+          <span class="stats-value ${minScore >= 0 ? 'positive' : 'negative'}">${minScore >= 0 ? '+' : ''}${minScore}</span>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
 }
 
 // ===== Settlement (精算) =====
@@ -505,6 +868,65 @@ document.getElementById('rate-select').addEventListener('change', function() {
 
 // ===== Reset =====
 document.getElementById('btn-reset').addEventListener('click', () => {
+  if (confirm('全データをリセットしますか？この操作は元に戻せません。')) {
+    state = { playerCount: 4, players: [], games: [], uma: '10-30', oka: '25000-30000', chipRate: 0 };
+    saveState();
+    location.reload();
+  }
+});
+
+// ===== Data Management (Export / Import / Reset) =====
+document.getElementById('btn-export').addEventListener('click', () => {
+  const data = JSON.stringify(state, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `mahjong_backup_${dateStr}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+document.getElementById('btn-import').addEventListener('click', () => {
+  document.getElementById('import-file').click();
+});
+
+document.getElementById('import-file').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!confirm('現在のデータを上書きします。よろしいですか？')) {
+    e.target.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const imported = JSON.parse(ev.target.result);
+      if (!imported.players || !Array.isArray(imported.games)) {
+        alert('無効なデータ形式です');
+        return;
+      }
+      // Merge with defaults
+      const defaults = { playerCount: 4, players: [], games: [], uma: '10-30', oka: '25000-30000', chipRate: 0 };
+      state = { ...defaults, ...imported };
+      if (!state.playerCount && state.players.length > 0) {
+        state.playerCount = state.players.length;
+      }
+      saveState();
+      location.reload();
+    } catch (err) {
+      alert('ファイルの読み込みに失敗しました: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+document.getElementById('btn-data-reset').addEventListener('click', () => {
   if (confirm('全データをリセットしますか？この操作は元に戻せません。')) {
     state = { playerCount: 4, players: [], games: [], uma: '10-30', oka: '25000-30000', chipRate: 0 };
     saveState();
@@ -631,6 +1053,7 @@ document.getElementById('history-body').addEventListener('click', (e) => {
     saveState();
     renderScoreboard();
     renderSettlement();
+    renderStats();
     if (document.getElementById('game-number')) {
       document.getElementById('game-number').textContent = `(第${state.games.length + 1}局)`;
     }
@@ -644,3 +1067,4 @@ document.getElementById('chip-rate-select').addEventListener('change', updateChi
 renderScoreboard();
 renderSettlement();
 renderPointsTable();
+renderStats();

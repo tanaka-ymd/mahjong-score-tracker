@@ -71,15 +71,22 @@ header h1 {
   z-index: 99;
   padding-left: var(--safe-left);
   padding-right: var(--safe-right);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+#tab-nav::-webkit-scrollbar {
+  display: none;
 }
 
 .tab {
-  flex: 1;
+  flex: 0 0 auto;
   min-width: 0;
-  padding: 14px 6px;
+  padding: 14px 10px;
   border: none;
   background: none;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer;
@@ -666,6 +673,177 @@ h3 {
 /* Hidden row for 3-player mode */
 .input-row.hidden {
   display: none;
+}
+
+/* Score Graph */
+.graph-card {
+  position: relative;
+  padding: 12px 8px;
+}
+
+#score-graph-canvas {
+  width: 100%;
+  height: 220px;
+  display: block;
+  touch-action: none;
+}
+
+.graph-tooltip {
+  position: absolute;
+  background: rgba(33,33,33,0.9);
+  color: white;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 10;
+  white-space: nowrap;
+  transform: translate(-50%, -100%);
+  margin-top: -8px;
+}
+
+.graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.graph-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.graph-legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+/* Session Headers in History */
+.session-header-row td {
+  padding: 0;
+  border-bottom: none;
+}
+
+.session-header {
+  background: var(--primary-light);
+  padding: 10px 12px;
+  margin: 4px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  min-height: 44px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.session-header .session-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary-dark);
+}
+
+.session-header .session-toggle {
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: transform 0.2s;
+}
+
+.session-header .session-toggle.collapsed {
+  transform: rotate(-90deg);
+}
+
+.session-subtotal-row {
+  background: #f0f7f1;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.session-group {
+  overflow: hidden;
+}
+
+.session-group.collapsed {
+  display: none;
+}
+
+/* Statistics Dashboard */
+.stats-overview {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.stats-total-games {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.stats-player-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+
+.stats-player-card .stats-player-name {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--border);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.stats-item {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0;
+}
+
+.stats-item .stats-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+
+.stats-item .stats-value {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.stats-item .stats-value.positive {
+  color: var(--primary);
+}
+
+.stats-item .stats-value.negative {
+  color: var(--danger);
+}
+
+/* Data Management */
+.data-section-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 6px;
+}
+
+.data-description {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
 }
 
 /* Responsive - iPhone SE and small phones */
